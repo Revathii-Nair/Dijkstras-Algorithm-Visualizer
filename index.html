@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dijkstra — Visualizer</title>
+    <script src="jquery-3.7.1.min.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+
+  <body>
+    <header><div class="heading">Dijkstra’s Algorithm Visualizer</div></header>
+
+    <div class="top-bar">
+      <div class="start-group">
+        <label>Start vertex:</label>
+        <input type="text" id="start" />
+        <button id="runBtn" class="btn">Run</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; align-items: center">
+        <button id="themeBtn" class="btn">Dark/Light Mode</button>
+        <button id="codeBtn" class="btn">Show Code</button>
+      </div>
+    </div>
+
+    <main class="layout">
+      <section class="graph">
+        <div class="canvas-wrap">
+          <canvas id="canvas" width="860" height="560"></canvas>
+        </div>
+      </section>
+
+      <div class="side">
+        <div id="codeBox" class="code hidden">
+          <div class="tabs">
+            <div id="tabPseudo" class="tab active">Pseudocode</div>
+            <div id="tabBigO" class="tab">Time Complexity</div>
+          </div>
+
+          <div id="contentPseudo" class="tab-content scrollable">
+            <pre>
+DIJKSTRA (G, w, s)
+{
+  INITIALIZE SINGLE-SOURCE (G, s)
+  S ← { }     // finalized shortest paths
+  PQ ← V[G]   // priority queue keyed by distance
+
+  while PQ not empty:
+    u ← EXTRACT-MIN(PQ)
+    for each v in Adj[u]:
+      Relax(u, v, w)
+}
+            </pre>
+          </div>
+
+          <div id="contentBigO" class="tab-content scrollable" style="display: none">
+            <pre>
+Time Complexity:
+  O((V + E) log V)
+Space: O(V + E)
+            </pre>
+          </div>
+        </div>
+
+        <div class="distance">
+          <h3>Distance Map</h3>
+          <table id="distanceTable">
+            <tr>
+              <th>Vertex</th>
+              <th>Distance</th>
+            </tr>
+          </table>
+          <div id="status" class="status"></div>
+        </div>
+
+        <div class="input">
+          <h3>Graph Input</h3>
+          <p class="input-note">Format: <code>(A,B,5)</code> separated by commas.</p>
+          <textarea id="graph-input" placeholder="(A,B,3),(B,C,4)"></textarea>
+          <div id="error" style="color: #c94444; margin-top: 8px"></div>
+          <button id="updateBtn" class="btn" style="margin-top: 10px">Update Graph</button>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="controls">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <label style="font-weight: 700; color: #345">Speed</label>
+          <input id="speed" type="range" min="1" max="4" step="1" value="2" />
+          <span id="speedTxt" style="font-weight: 700">Normal</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center">
+          <button id="pause" class="btn">Pause</button>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      $(function () {
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const DEFAULT_NODES = {
+          A: { x: 140, y: 150 },
+          B: { x: 320, y: 110 },
+          C: { x: 520, y: 150 },
+          D: { x: 260, y: 320 },
+          E: { x: 460, y: 320 },
+        };
+
+        const DEFAULT_EDGES = [
+          ['A', 'B', 3],
+          ['A', 'D', 7],
+          ['B', 'C', 1],
+          ['B', 'E', 5],
+          ['C', 'E', 2],
+          ['D', 'E', 3],
+        ];
+
+        const predefinedCoords = [
+          { x: 140, y: 150 },
+          { x: 320, y: 110 },
+          { x: 520, y: 150 },
+          { x: 260, y: 320 },
+          { x: 460, y: 320 },
+          { x: 640, y: 200 },
+          { x: 120, y: 360 },
+          { x: 520, y: 360 },
+        ];
+
+        let nodes = DEFAULT_NODES;
+        let edges = DEFAULT_EDGES;
+
+        let isRunning = false;
+        let isPaused = false;
+        let skipToEnd = false;
+
+        const speedMap = { 1: 4000, 2: 2500, 3: 1500, 4: 800 };
+        const speedText = { 1: 'Slow', 2: 'Normal', 3: 'Fast', 4: 'Faster' };
+
+        let speedLevel = Number($('#speed').val());
+        $('#speedTxt').text(speedText[speedLevel]);
+        $('#speed').on('input', function () {
+          speedLevel = Number(this.value);
+          $('#speedTxt').text(speedText[this.value]);
+        });
+
+        let processedNodes = new Set();
+
+        function drawGraph(current = null, checkingEdge = null, processedNodes = new Set()) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          const dark = $('body').hasClass('dark');
+          const edgeColor = dark ? '#8fc8ff' : '#1d4a73';
+          const textColor = dark ? '#e6f7ff' : '#05243b';
+
+          edges.forEach(([a, b, w]) => {
+            const n1 = nodes[a],
+              n2 = nodes[b];
+            if (!n1 || !n2) return;
+            const isChecking =
+              checkingEdge &&
+              ((checkingEdge[0] === a && checkingEdge[1] === b) ||
+                (checkingEdge[0] === b && checkingEdge[1] === a));
+            ctx.beginPath();
+            ctx.moveTo(n1.x, n1.y);
+            ctx.lineTo(n2.x, n2.y);
+            ctx.strokeStyle = isChecking ? '#f5c542' : edgeColor;
+            ctx.lineWidth = isChecking ? 4 : 2;
+            ctx.stroke();
+
+            const mx = (n1.x + n2.x) / 2,
+              my = (n1.y + n2.y) / 2;
+            ctx.fillStyle = textColor;
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText(w, mx, my - 6);
+          });
+
+          for (const [label, { x, y }] of Object.entries(nodes)) {
+            ctx.beginPath();
+            ctx.arc(x, y, 26, 0, Math.PI * 2);
+            if (current === label) ctx.fillStyle = '#ff8a3d';
+            else if (processedNodes.has(label)) ctx.fillStyle = '#22c55e';
+            else ctx.fillStyle = '#2f85c9';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#0b3a57';
+            ctx.stroke();
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, x, y);
+          }
+        }
+
+        function initializeDistanceTable(start) {
+          const t = $('#distanceTable');
+          t.find('tr:not(:first)').remove();
+          for (const v in nodes) {
+            const d = v === start ? 0 : '∞';
+            t.append(`<tr id="row-${v}"><td>${v}</td><td class="dist-cell">${d}</td></tr>`);
+          }
+        }
+
+        function updateDistanceInTable(vertex, newDistance) {
+          const cell = $(`#row-${vertex} td.dist-cell`);
+          cell.text(newDistance);
+          cell.addClass('update-border');
+          setTimeout(() => cell.removeClass('update-border'), 800);
+        }
+
+        function showStatus(html) {
+          $('#status').html(html).fadeIn(150);
+        }
+        function hideStatus() {
+          $('#status').fadeOut(250, function () {
+            $(this).html('');
+          });
+        }
+
+        class PriorityQueue {
+          constructor() {
+            this.q = [];
+          }
+          push(item) {
+            this.q.push(item);
+            this.q.sort((a, b) => a.distance - b.distance);
+          }
+          pop() {
+            return this.q.shift();
+          }
+          size() {
+            return this.q.length;
+          }
+        }
+
+        function wait(ms) {
+          return new Promise((resolve) => {
+            const check = () => {
+              if (skipToEnd) return resolve();
+              if (isPaused) return setTimeout(check, 60);
+              setTimeout(resolve, ms);
+            };
+            check();
+          });
+        }
+
+        async function runDijkstra(startLabel) {
+          if (isRunning) return;
+          isRunning = true;
+          isPaused = false;
+          skipToEnd = false;
+
+          initializeDistanceTable(startLabel);
+          showStatus(`Starting from <b>${startLabel}</b>`);
+          const vertices = Object.keys(nodes);
+          const labelToIndex = {},
+            indexToLabel = [];
+          vertices.forEach((l, i) => {
+            labelToIndex[l] = i;
+            indexToLabel[i] = l;
+          });
+
+          const adj = [];
+          for (let i = 0; i < vertices.length; i++) {
+            adj.push([]);
+          }
+
+          for (const [a, b, w] of edges) {
+            const u = labelToIndex[a],
+              v = labelToIndex[b];
+            adj[u].push([v, w]);
+            adj[v].push([u, w]);
+          }
+
+          const dist = Array(vertices.length).fill(Infinity);
+          const visited = new Set();
+          processedNodes = new Set();
+          const pq = new PriorityQueue();
+          dist[labelToIndex[startLabel]] = 0;
+          pq.push({ index: labelToIndex[startLabel], distance: 0 });
+
+          while (pq.size() > 0) {
+            const popped = pq.pop();
+            if (!popped) break;
+            const u = popped.index;
+            if (visited.has(u)) continue;
+            visited.add(u);
+            const current = indexToLabel[u];
+            showStatus(`Visiting <b>${current}</b>`);
+            drawGraph(current, null, processedNodes);
+            await wait(speedMap[speedLevel]);
+
+            for (const [v, w] of adj[u]) {
+              if (visited.has(v)) continue;
+              const neighbor = indexToLabel[v];
+              const candidate = dist[u] + w;
+              drawGraph(current, [current, neighbor], processedNodes);
+              await wait(speedMap[speedLevel] / 1.5);
+              if (candidate < dist[v]) {
+                dist[v] = candidate;
+                updateDistanceInTable(neighbor, candidate);
+                pq.push({ index: v, distance: candidate });
+              }
+            }
+            processedNodes.add(current);
+            drawGraph(null, null, processedNodes);
+          }
+          showStatus('Algorithm complete!');
+          isRunning = false;
+          setTimeout(hideStatus, 1500);
+        }
+
+        $('#runBtn').on('click', function () {
+          const start = $('#start').val().trim().toUpperCase() || 'A';
+          if (!nodes[start]) return alert('Invalid start vertex.');
+          runDijkstra(start);
+        });
+
+        
+        $('#updateBtn').on('click', function () {
+          $('#error').html('');
+          try {
+            const inputString = $('#graph-input').val().trim();
+            let newNodes = {};
+            let newEdges = [];
+            let vertexMap = {};
+            let coordIndex = 0;
+
+            if (!inputString) {
+              nodes = {};
+              edges = [];
+              drawGraph();
+              return;
+            }
+
+            const edgeStrings = inputString.slice(1, -1).split('),(');
+
+            for (const edgeString of edgeStrings) {
+              const parts = edgeString.split(',');
+
+              if (parts.length !== 3) {
+                throw new Error('Fill follow the format');
+              }
+
+              const from = parts[0].trim();
+              const to = parts[1].trim();
+              const weightNum = parseInt(parts[2].trim());
+
+              if (isNaN(weightNum)) {
+                throw new Error('Fill follow the format');
+              }
+
+              newEdges.push([from, to, weightNum]);
+
+              if (!vertexMap[from]) {
+                if (coordIndex >= predefinedCoords.length) {
+                  throw new Error('Too many unique vertices for predefined coordinates!');
+                }
+                vertexMap[from] = predefinedCoords[coordIndex];
+                coordIndex++;
+              }
+              newNodes[from] = vertexMap[from];
+
+              if (!vertexMap[to]) {
+                if (coordIndex >= predefinedCoords.length) {
+                  throw new Error('Too many unique vertices for predefined coordinates!');
+                }
+                vertexMap[to] = predefinedCoords[coordIndex];
+                coordIndex++;
+              }
+              newNodes[to] = vertexMap[to];
+            }
+
+            nodes = newNodes;
+            edges = newEdges;
+            drawGraph();
+          } catch (error) {
+            $('#error').html(error.message);
+          }
+        });
+
+        $('#pause').on('click', function () {
+          if (!isRunning) return;
+          isPaused = !isPaused;
+          $(this).text(isPaused ? 'Resume' : 'Pause');
+        });
+
+        $('#themeBtn').on('click', function () {
+          $('body').toggleClass('dark');
+          drawGraph();
+        });
+        $('#codeBtn').on('click', function () {
+          $('#codeBox').toggleClass('hidden');
+        });
+        $('#tabPseudo').on('click', function () {
+          $('#tabPseudo').addClass('active');
+          $('#tabBigO').removeClass('active');
+          $('#contentPseudo').show();
+          $('#contentBigO').hide();
+        });
+        $('#tabBigO').on('click', function () {
+          $('#tabBigO').addClass('active');
+          $('#tabPseudo').removeClass('active');
+          $('#contentBigO').show();
+          $('#contentPseudo').hide();
+        });
+
+        // initialize default graph
+        $('#graph-input').val('(A,B,3),(A,D,7),(B,C,1),(B,E,5),(C,E,2),(D,E,3)');
+        $('#start').val('A');
+        initializeDistanceTable('A');
+        drawGraph();
+      });
+    </script>
+  </body>
+</html>
