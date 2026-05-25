@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -99,8 +99,8 @@ Space: O(V + E)
 
     <script>
       $(function () {
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
 
         const DEFAULT_NODES = {
           A: { x: 140, y: 150 },
@@ -111,12 +111,12 @@ Space: O(V + E)
         };
 
         const DEFAULT_EDGES = [
-          ['A', 'B', 3],
-          ['A', 'D', 7],
-          ['B', 'C', 1],
-          ['B', 'E', 5],
-          ['C', 'E', 2],
-          ['D', 'E', 3],
+          ["A", "B", 3],
+          ["A", "D", 7],
+          ["B", "C", 1],
+          ["B", "E", 5],
+          ["C", "E", 2],
+          ["D", "E", 3],
         ];
 
         const predefinedCoords = [
@@ -138,69 +138,66 @@ Space: O(V + E)
         let skipToEnd = false;
 
         const speedMap = { 1: 4000, 2: 2500, 3: 1500, 4: 800 };
-        const speedText = { 1: 'Slow', 2: 'Normal', 3: 'Fast', 4: 'Faster' };
+        const speedText = { 1: "Slow", 2: "Normal", 3: "Fast", 4: "Faster" };
 
-        let speedLevel = Number($('#speed').val());
-        $('#speedTxt').text(speedText[speedLevel]);
-        $('#speed').on('input', function () {
+        let speedLevel = Number($("#speed").val());
+        $("#speedTxt").text(speedText[speedLevel]);
+        $("#speed").on("input", function () {
           speedLevel = Number(this.value);
-          $('#speedTxt').text(speedText[this.value]);
+          $("#speedTxt").text(speedText[this.value]);
         });
 
         let processedNodes = new Set();
 
         function drawGraph(current = null, checkingEdge = null, processedNodes = new Set()) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          const dark = $('body').hasClass('dark');
-          const edgeColor = dark ? '#8fc8ff' : '#1d4a73';
-          const textColor = dark ? '#e6f7ff' : '#05243b';
+          const dark = $("body").hasClass("dark");
+          const edgeColor = dark ? "#8fc8ff" : "#1d4a73";
+          const textColor = dark ? "#e6f7ff" : "#05243b";
 
           edges.forEach(([a, b, w]) => {
             const n1 = nodes[a],
               n2 = nodes[b];
             if (!n1 || !n2) return;
-            const isChecking =
-              checkingEdge &&
-              ((checkingEdge[0] === a && checkingEdge[1] === b) ||
-                (checkingEdge[0] === b && checkingEdge[1] === a));
+            const isChecking = checkingEdge && ((checkingEdge[0] === a && checkingEdge[1] === b) || (checkingEdge[0] === b && checkingEdge[1] === a));
             ctx.beginPath();
             ctx.moveTo(n1.x, n1.y);
             ctx.lineTo(n2.x, n2.y);
-            ctx.strokeStyle = isChecking ? '#f5c542' : edgeColor;
+            ctx.strokeStyle = isChecking ? "#f5c542" : edgeColor;
             ctx.lineWidth = isChecking ? 4 : 2;
             ctx.stroke();
 
             const mx = (n1.x + n2.x) / 2,
               my = (n1.y + n2.y) / 2;
             ctx.fillStyle = textColor;
-            ctx.font = 'bold 14px Arial';
+            ctx.font = "bold 14px Arial";
             ctx.fillText(w, mx, my - 6);
           });
 
           for (const [label, { x, y }] of Object.entries(nodes)) {
             ctx.beginPath();
             ctx.arc(x, y, 26, 0, Math.PI * 2);
-            if (current === label) ctx.fillStyle = '#ff8a3d';
-            else if (processedNodes.has(label)) ctx.fillStyle = '#22c55e';
-            else ctx.fillStyle = '#2f85c9';
+            if (current === label) ctx.fillStyle = "#ff8a3d";
+            else if (processedNodes.has(label)) ctx.fillStyle = "#22c55e";
+            else ctx.fillStyle = "#2f85c9";
             ctx.fill();
             ctx.lineWidth = 2;
-            ctx.strokeStyle = '#0b3a57';
+            ctx.strokeStyle = "#0b3a57";
             ctx.stroke();
 
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 18px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 18px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
             ctx.fillText(label, x, y);
           }
         }
 
         function initializeDistanceTable(start) {
-          const t = $('#distanceTable');
-          t.find('tr:not(:first)').remove();
+          const t = $("#distanceTable");
+          t.find("tr:not(:first)").remove();
           for (const v in nodes) {
-            const d = v === start ? 0 : '∞';
+            const d = v === start ? 0 : "∞";
             t.append(`<tr id="row-${v}"><td>${v}</td><td class="dist-cell">${d}</td></tr>`);
           }
         }
@@ -208,32 +205,79 @@ Space: O(V + E)
         function updateDistanceInTable(vertex, newDistance) {
           const cell = $(`#row-${vertex} td.dist-cell`);
           cell.text(newDistance);
-          cell.addClass('update-border');
-          setTimeout(() => cell.removeClass('update-border'), 800);
+          cell.addClass("update-border");
+          setTimeout(() => cell.removeClass("update-border"), 800);
         }
 
         function showStatus(html) {
-          $('#status').html(html).fadeIn(150);
+          $("#status").html(html).fadeIn(150);
         }
         function hideStatus() {
-          $('#status').fadeOut(250, function () {
-            $(this).html('');
+          $("#status").fadeOut(250, function () {
+            $(this).html("");
           });
         }
 
-        class PriorityQueue {
+        class MinHeap {
           constructor() {
-            this.q = [];
+            this.heap = [];
           }
+
+          getParent(i) {
+            return Math.floor((i - 1) / 2);
+          }
+          getLeft(i) {
+            return 2 * i + 1;
+          }
+          getRight(i) {
+            return 2 * i + 2;
+          }
+
           push(item) {
-            this.q.push(item);
-            this.q.sort((a, b) => a.distance - b.distance);
+            this.heap.push(item);
+            this.bubbleUp(this.heap.length - 1);
           }
+
           pop() {
-            return this.q.shift();
+            if (this.size() === 0) return null;
+            if (this.size() === 1) return this.heap.pop();
+
+            const min = this.heap[0];
+            this.heap[0] = this.heap.pop();
+            this.bubbleDown(0);
+            return min;
           }
+
+          bubbleUp(i) {
+            while (i > 0) {
+              let parent = this.getParent(i);
+              if (this.heap[parent].distance <= this.heap[i].distance) break;
+              [this.heap[parent], this.heap[i]] = [this.heap[i], this.heap[parent]];
+              i = parent;
+            }
+          }
+
+          bubbleDown(i) {
+            while (true) {
+              let smallest = i;
+              let left = this.getLeft(i);
+              let right = this.getRight(i);
+
+              if (left < this.heap.length && this.heap[left].distance < this.heap[smallest].distance) {
+                smallest = left;
+              }
+              if (right < this.heap.length && this.heap[right].distance < this.heap[smallest].distance) {
+                smallest = right;
+              }
+
+              if (smallest === i) break;
+              [this.heap[i], this.heap[smallest]] = [this.heap[smallest], this.heap[i]];
+              i = smallest;
+            }
+          }
+
           size() {
-            return this.q.length;
+            return this.heap.length;
           }
         }
 
@@ -279,7 +323,7 @@ Space: O(V + E)
           const dist = Array(vertices.length).fill(Infinity);
           const visited = new Set();
           processedNodes = new Set();
-          const pq = new PriorityQueue();
+          const pq = new MinHeap();
           dist[labelToIndex[startLabel]] = 0;
           pq.push({ index: labelToIndex[startLabel], distance: 0 });
 
@@ -309,22 +353,21 @@ Space: O(V + E)
             processedNodes.add(current);
             drawGraph(null, null, processedNodes);
           }
-          showStatus('Algorithm complete!');
+          showStatus("Algorithm complete!");
           isRunning = false;
           setTimeout(hideStatus, 1500);
         }
 
-        $('#runBtn').on('click', function () {
-          const start = $('#start').val().trim().toUpperCase() || 'A';
-          if (!nodes[start]) return alert('Invalid start vertex.');
+        $("#runBtn").on("click", function () {
+          const start = $("#start").val().trim().toUpperCase() || "A";
+          if (!nodes[start]) return alert("Invalid start vertex.");
           runDijkstra(start);
         });
 
-        
-        $('#updateBtn').on('click', function () {
-          $('#error').html('');
+        $("#updateBtn").on("click", function () {
+          $("#error").html("");
           try {
-            const inputString = $('#graph-input').val().trim();
+            const inputString = $("#graph-input").val().trim();
             let newNodes = {};
             let newEdges = [];
             let vertexMap = {};
@@ -337,13 +380,13 @@ Space: O(V + E)
               return;
             }
 
-            const edgeStrings = inputString.slice(1, -1).split('),(');
+            const edgeStrings = inputString.slice(1, -1).split("),(");
 
             for (const edgeString of edgeStrings) {
-              const parts = edgeString.split(',');
+              const parts = edgeString.split(",");
 
               if (parts.length !== 3) {
-                throw new Error('Fill follow the format');
+                throw new Error("Fill follow the format");
               }
 
               const from = parts[0].trim();
@@ -351,14 +394,14 @@ Space: O(V + E)
               const weightNum = parseInt(parts[2].trim());
 
               if (isNaN(weightNum)) {
-                throw new Error('Fill follow the format');
+                throw new Error("Fill follow the format");
               }
 
               newEdges.push([from, to, weightNum]);
 
               if (!vertexMap[from]) {
                 if (coordIndex >= predefinedCoords.length) {
-                  throw new Error('Too many unique vertices for predefined coordinates!');
+                  throw new Error("Too many unique vertices for predefined coordinates!");
                 }
                 vertexMap[from] = predefinedCoords[coordIndex];
                 coordIndex++;
@@ -367,7 +410,7 @@ Space: O(V + E)
 
               if (!vertexMap[to]) {
                 if (coordIndex >= predefinedCoords.length) {
-                  throw new Error('Too many unique vertices for predefined coordinates!');
+                  throw new Error("Too many unique vertices for predefined coordinates!");
                 }
                 vertexMap[to] = predefinedCoords[coordIndex];
                 coordIndex++;
@@ -379,40 +422,40 @@ Space: O(V + E)
             edges = newEdges;
             drawGraph();
           } catch (error) {
-            $('#error').html(error.message);
+            $("#error").html(error.message);
           }
         });
 
-        $('#pause').on('click', function () {
+        $("#pause").on("click", function () {
           if (!isRunning) return;
           isPaused = !isPaused;
-          $(this).text(isPaused ? 'Resume' : 'Pause');
+          $(this).text(isPaused ? "Resume" : "Pause");
         });
 
-        $('#themeBtn').on('click', function () {
-          $('body').toggleClass('dark');
+        $("#themeBtn").on("click", function () {
+          $("body").toggleClass("dark");
           drawGraph();
         });
-        $('#codeBtn').on('click', function () {
-          $('#codeBox').toggleClass('hidden');
+        $("#codeBtn").on("click", function () {
+          $("#codeBox").toggleClass("hidden");
         });
-        $('#tabPseudo').on('click', function () {
-          $('#tabPseudo').addClass('active');
-          $('#tabBigO').removeClass('active');
-          $('#contentPseudo').show();
-          $('#contentBigO').hide();
+        $("#tabPseudo").on("click", function () {
+          $("#tabPseudo").addClass("active");
+          $("#tabBigO").removeClass("active");
+          $("#contentPseudo").show();
+          $("#contentBigO").hide();
         });
-        $('#tabBigO').on('click', function () {
-          $('#tabBigO').addClass('active');
-          $('#tabPseudo').removeClass('active');
-          $('#contentBigO').show();
-          $('#contentPseudo').hide();
+        $("#tabBigO").on("click", function () {
+          $("#tabBigO").addClass("active");
+          $("#tabPseudo").removeClass("active");
+          $("#contentBigO").show();
+          $("#contentPseudo").hide();
         });
 
         // initialize default graph
-        $('#graph-input').val('(A,B,3),(A,D,7),(B,C,1),(B,E,5),(C,E,2),(D,E,3)');
-        $('#start').val('A');
-        initializeDistanceTable('A');
+        $("#graph-input").val("(A,B,3),(A,D,7),(B,C,1),(B,E,5),(C,E,2),(D,E,3)");
+        $("#start").val("A");
+        initializeDistanceTable("A");
         drawGraph();
       });
     </script>
